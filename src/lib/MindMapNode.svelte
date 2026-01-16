@@ -103,14 +103,8 @@
   function toggleExpand() {
     expanded = !expanded;
   }
-  function getColor(id) {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const h = Math.abs(hash % 360);
-    return `hsl(${h}, 70%, 85%)`; // Pastel color
-  }
+
+  import { getColor } from "./utils";
 
   $: collabColor =
     node.createdBy && node.createdBy.id !== $mapOwnerId

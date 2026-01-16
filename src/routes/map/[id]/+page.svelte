@@ -13,11 +13,14 @@
     import { onMount, onDestroy } from "svelte";
     import { io } from "socket.io-client";
 
+    import ContributorList from "$lib/ContributorList.svelte";
+
     export let data;
 
     let socket;
     let isRemoteUpdate = false;
     let lastLocalChange = 0;
+    let contributors = [];
 
     // Sync User and Owner to Store
     $: if (data) {
@@ -105,13 +108,23 @@
         socket.on("connect", () => {
             console.log("Connected to WebSocket");
             if (data.map.id) {
-                socket.emit("join-map", data.map.id);
+                // Pass user data when joining
+                const user = {
+                    id: data.user?.id,
+                    name: data.user?.name,
+                    image: data.user?.image,
+                };
+                socket.emit("join-map", data.map.id, user);
             }
         });
 
         socket.on("map-updated", () => {
             console.log("Map updated, fetching...");
             fetchMap();
+        });
+
+        socket.on("contributors-updated", (users) => {
+            contributors = users;
         });
     });
 
@@ -124,6 +137,9 @@
 <div
     class="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-auto transition-colors duration-300 relative"
 >
+    <!-- Contributor List -->
+    <ContributorList {contributors} />
+
     <Toolbar
         user={data.user}
         mapId={data.map.id}
