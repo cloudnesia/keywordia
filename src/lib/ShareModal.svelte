@@ -158,7 +158,7 @@
                     </label>
                 </div>
 
-                <div
+                <!-- <div
                     class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4"
                 >
                     <h4
@@ -202,7 +202,7 @@
                             </li>
                         {/each}
                     </ul>
-                </div>
+                </div> -->
             {/if}
 
             <div class="flex justify-end">

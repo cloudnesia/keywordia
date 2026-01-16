@@ -8,6 +8,11 @@
     deleteNode,
     addSibling,
     mapOwnerId,
+    startTransaction,
+    commitTransaction,
+    discardTransaction,
+    isPresentationMode,
+    presentationSignal,
   } from "./store";
   import { onMount } from "svelte";
 
@@ -16,7 +21,24 @@
 
   let expanded = true;
   let element; // Reference to the contenteditable div
+  let initialText = "";
   const DEFAULT_TEXT = "New Node";
+
+  // Presentation Mode: Collapse all except root when signal updates
+  $: if ($presentationSignal && $isPresentationMode) {
+    if (!isRoot) {
+      expanded = false;
+    } else {
+      expanded = true;
+    }
+  }
+
+  // Click handler for presentation mode to toggle children
+  function handleNodeClick() {
+    if ($isPresentationMode && node.children.length > 0) {
+      toggleExpand();
+    }
+  }
 
   // Auto-focus logic
   $: if ($focusedNodeId === node.id && element) {
@@ -31,16 +53,46 @@
     element.textContent = node.text;
   }
 
+  function finalizeText() {
+    if (!element) return;
+
+    const text = element.textContent.trim();
+    let finalVal = text;
+
+    // Restore default text if empty
+    if (text === "") {
+      finalVal = isRoot ? "Central Topic" : "New Node";
+      updateNodeText(node.id, finalVal);
+      element.textContent = finalVal;
+    } else {
+      // Ensure store is synced (redundant with handleInput but safe)
+      updateNodeText(node.id, finalVal);
+    }
+
+    // Commit if changed effective text, else discard
+    // We compare finalVal with initialText to see if the SESSION resulted in a change
+    if (finalVal !== initialText) {
+      commitTransaction();
+    } else {
+      discardTransaction();
+    }
+    initialText = ""; // Reset to prevent double handling
+  }
+
   function handleInput(e) {
     updateNodeText(node.id, e.target.textContent);
   }
 
   function handleFocus(e) {
+    startTransaction();
+    initialText = node.text; // Always capture the starting text
+
     const text = e.target.textContent.trim();
     if (text === "New Node" || (isRoot && text === "Central Topic")) {
       e.target.textContent = "";
-      updateNodeText(node.id, ""); // Sync store to prevent reactive revert
+      updateNodeText(node.id, "");
     }
+
     if ($focusedNodeId === node.id) {
       focusedNodeId.set(null);
     }
@@ -52,6 +104,8 @@
     // Enter: Add Sibling
     if (e.key === "Enter") {
       e.preventDefault();
+      finalizeText();
+
       if (isRoot) {
         handleAdd();
       } else {
@@ -62,6 +116,8 @@
     // Tab: Add Child
     if (e.key === "Tab") {
       e.preventDefault();
+      finalizeText();
+
       handleAdd();
     }
 
@@ -73,6 +129,10 @@
       if (!isRoot) {
         if (node.text === "" || node.text === "New Node") {
           e.preventDefault();
+
+          // For delete, we just want to discard any pending text transaction
+          // because the node is going away. We don't need to save the text state.
+          discardTransaction();
           deleteNode(node.id);
         }
       }
@@ -81,18 +141,13 @@
     // Explicit Delete command (Shift+Delete)
     if (e.key === "Delete" && e.shiftKey && !isRoot) {
       e.preventDefault();
+      discardTransaction();
       deleteNode(node.id);
     }
   }
 
   function handleBlur(e) {
-    const text = e.target.textContent.trim();
-    if (text === "") {
-      e.target.textContent = isRoot ? "Central Topic" : "New Node";
-      updateNodeText(node.id, e.target.textContent);
-    } else {
-      updateNodeText(node.id, text);
-    }
+    finalizeText();
   }
 
   function handleAdd() {
@@ -116,8 +171,17 @@
   class="flex {$layout === 'top-down' ? 'flex-col' : 'flex-row'} items-center"
 >
   <div
-    class="flex items-center gap-2 p-2 rounded-lg transition-all duration-300 z-10 relative
-    {$isReadOnly ? '' : 'hover:scale-105'}
+    on:click|stopPropagation={handleNodeClick}
+    role="button"
+    tabindex="0"
+    on:keypress={(e) => {
+      if (e.key === "Enter") handleNodeClick();
+    }}
+    class="flex items-center gap-2 p-2 rounded-lg transition-all duration-300 z-10 relative group
+    {$isReadOnly || $isPresentationMode ? '' : 'hover:scale-105'}
+    {$isPresentationMode && node.children.length > 0
+      ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400'
+      : ''}
     {isRoot
       ? 'bg-blue-600 text-white text-xl font-bold shadow-lg'
       : collabColor
@@ -129,10 +193,10 @@
       ? `Created by ${node.createdBy.name}`
       : ""}
   >
-    <!-- Expand/Collapse for parents -->
-    {#if node.children && node.children.length > 0}
+    <!-- Expand/Collapse for parents (Hidden in Presentation Mode) -->
+    {#if node.children && node.children.length > 0 && !$isPresentationMode}
       <button
-        on:click={toggleExpand}
+        on:click|stopPropagation={toggleExpand}
         class="text-xs mr-1 opacity-50 hover:opacity-100 cursor-pointer"
       >
         {expanded ? "−" : "+"}
@@ -140,7 +204,7 @@
     {/if}
 
     <div
-      contenteditable={!$isReadOnly}
+      contenteditable={!$isReadOnly && !$isPresentationMode}
       bind:this={element}
       on:input={handleInput}
       on:keydown={handleKeydown}
@@ -148,15 +212,20 @@
       on:blur={handleBlur}
       class="outline-none min-w-[50px] {isRoot
         ? 'text-center'
-        : 'text-left'} px-2 py-1 cursor-text empty:before:content-[attr(placeholder)] focus:before:content-none"
+        : 'text-left'} px-2 py-1 {$isReadOnly || $isPresentationMode
+        ? 'cursor-default pointer-events-none'
+        : 'cursor-text'} empty:before:content-[attr(placeholder)] focus:before:content-none"
       placeholder="Node"
     ></div>
 
     <!-- Add Child Button -->
-    {#if !$isReadOnly}
+    {#if !$isReadOnly && !$isPresentationMode}
       <button
-        on:click={handleAdd}
-        class="ml-2 w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm text-sm cursor-pointer"
+        on:click|stopPropagation={handleAdd}
+        class="absolute w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm text-sm cursor-pointer z-50 opacity-0 group-hover:opacity-100
+        {$layout === 'top-down'
+          ? '-bottom-3 left-1/2 -translate-x-1/2'
+          : '-right-3 top-1/2 -translate-y-1/2'}"
         title="Add Child"
       >
         +

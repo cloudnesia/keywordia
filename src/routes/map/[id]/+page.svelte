@@ -149,6 +149,12 @@
     />
 
     <div class="pt-32 pb-20 px-8 flex justify-center min-w-max">
-        <MindMapNode node={$mindMap} isRoot={true} />
+        <!-- Export Container: Wraps strictly the map content -->
+        <div
+            id="map-container"
+            class="p-8 rounded-xl bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+        >
+            <MindMapNode node={$mindMap} isRoot={true} />
+        </div>
     </div>
 </div>

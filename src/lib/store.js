@@ -14,6 +14,9 @@ export const focusedNodeId = writable(null); // Track node to auto-focus
 export const theme = writable('light');
 export const currentUser = writable(null);
 export const mapOwnerId = writable(null);
+export const isPresentationMode = writable(false);
+export const presentationSignal = writable(0);
+
 if (typeof window !== 'undefined') {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const updateTheme = (e) => {
@@ -98,6 +101,7 @@ export const updateNodeText = (id, text) => {
 };
 
 export const addChild = (parentId) => {
+    recordHistory();
     const id = crypto.randomUUID();
     const user = get(currentUser);
     const newChild = {
@@ -116,11 +120,13 @@ export const addChild = (parentId) => {
 
 export const deleteNode = (id) => {
     if (id === 'root') return; // Cannot delete root
+    recordHistory();
     mindMap.update(tree => deleteNodeRecursive(tree, id));
 };
 
 export const addSibling = (siblingId) => {
     if (siblingId === 'root') return; // Root has no siblings
+    recordHistory();
     const id = crypto.randomUUID();
     const user = get(currentUser);
     const newSibling = {
@@ -140,3 +146,83 @@ export const addSibling = (siblingId) => {
 export const setMap = (data) => {
     mindMap.set(data);
 }
+
+// --- History / Undo-Redo System ---
+
+export const history = writable({
+    past: [],
+    future: []
+});
+
+let snapshot = null; // Temp storage for transaction
+
+// Record the current state into history before making a change
+export const recordHistory = () => {
+    const currentState = get(mindMap);
+    history.update(h => ({
+        past: [...h.past, structuredClone(currentState)],
+        future: []
+    }));
+};
+
+export const startTransaction = () => {
+    snapshot = structuredClone(get(mindMap));
+};
+
+export const commitTransaction = () => {
+    if (snapshot) {
+        history.update(h => ({
+            past: [...h.past, snapshot],
+            future: []
+        }));
+        snapshot = null;
+    }
+};
+
+export const discardTransaction = () => {
+    snapshot = null;
+};
+
+export const undo = () => {
+    discardTransaction();
+    const h = get(history);
+    const user = get(currentUser);
+    const ownerId = get(mapOwnerId);
+
+    // Only owner can undo
+    if (!user || !ownerId || user.id !== ownerId) return;
+
+    if (h.past.length === 0) return;
+
+    const previous = h.past[h.past.length - 1];
+    const newPast = h.past.slice(0, h.past.length - 1);
+    const current = get(mindMap);
+
+    mindMap.set(previous);
+    history.set({
+        past: newPast,
+        future: [current, ...h.future]
+    });
+};
+
+export const redo = () => {
+    discardTransaction();
+    const h = get(history);
+    const user = get(currentUser);
+    const ownerId = get(mapOwnerId);
+
+    // Only owner can redo
+    if (!user || !ownerId || user.id !== ownerId) return;
+
+    if (h.future.length === 0) return;
+
+    const next = h.future[0];
+    const newFuture = h.future.slice(1);
+    const current = get(mindMap);
+
+    mindMap.set(next);
+    history.set({
+        past: [...h.past, current],
+        future: newFuture
+    });
+};

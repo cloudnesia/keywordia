@@ -152,7 +152,58 @@
 
   import { page } from "$app/stores";
   import Logo from "./Logo.svelte";
+  import { exportToMarkdown, exportToImage, exportToPDF } from "./exportUtils";
+  import LoadingModal from "./components/LoadingModal.svelte";
+  import { undo, redo, history } from "./store";
+
+  let isExporting = false;
+  let exportMessage = "Exporting...";
+
+  // Keyboard Shortcuts
+  function handleKeydown(e) {
+    if (!isOwner) return;
+
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === "z") {
+        e.preventDefault();
+        undo();
+      } else if (e.key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    }
+  }
+
+  async function handleExport(type) {
+    isExporting = true;
+    exportMessage = `Generating ${type}...`;
+
+    // Determine background color based on current theme
+    const isDark = $theme === "dark";
+    const backgroundColor = isDark ? "#111827" : "#f9fafb"; // gray-900 or gray-50
+
+    try {
+      // Small delay to allow UI to update and show modal
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      if (type === "Markdown") {
+        exportToMarkdown();
+      } else if (type === "PNG") {
+        await exportToImage("map-container", { backgroundColor });
+      } else if (type === "PDF") {
+        await exportToPDF("map-container", { backgroundColor });
+      }
+    } catch (e) {
+      console.error("Export failed", e);
+      toasts.add(`Failed to export ${type}`, "error");
+    } finally {
+      isExporting = false;
+    }
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
+<LoadingModal isOpen={isExporting} message={exportMessage} />
 
 <ShareModal
   isOpen={showShareModal}
@@ -171,7 +222,9 @@
     <h1
       class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent hidden sm:block"
     >
-      Keywordia
+    <a href="/">
+    Keywordia
+    </a>  
     </h1>
     {#if user}
       <span class="text-sm font-medium">Hello, {user.name}</span>
@@ -201,6 +254,25 @@
         {$layout === "top-down" ? "⬇️ Tree" : "➡️ Linear"}
       </button>
 
+      {#if isOwner}
+        <button
+          on:click={undo}
+          disabled={$history.past.length === 0}
+          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Undo (Ctrl+Z)"
+        >
+          ↩️
+        </button>
+        <button
+          on:click={redo}
+          disabled={$history.future.length === 0}
+          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Redo (Ctrl+Y)"
+        >
+          ↪️
+        </button>
+      {/if}
+
       {#if canEdit}
         <button
           on:click={togglePresentation}
@@ -220,11 +292,48 @@
           >Share</button
         >
       {/if}
-      <button
-        on:click={downloadJSON}
-        class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer"
-        >📥 Download</button
-      >
+
+      <!-- Export Dropdown -->
+      <div class="relative group">
+        <button
+          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer flex items-center gap-1"
+        >
+          📤 Export
+        </button>
+        <!-- Dropdown wrapper with top padding to bridge the gap -->
+        <div
+          class="absolute right-0 top-full w-48 hidden group-hover:block z-50 pt-2"
+        >
+          <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+          >
+            <button
+              on:click={downloadJSON}
+              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              📄 JSON (Backup)
+            </button>
+            <button
+              on:click={() => handleExport("Markdown")}
+              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              📝 Markdown
+            </button>
+            <button
+              on:click={() => handleExport("PNG")}
+              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              🖼️ Image (PNG)
+            </button>
+            <button
+              on:click={() => handleExport("PDF")}
+              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              📑 PDF
+            </button>
+          </div>
+        </div>
+      </div>
     {/if}
 
     {#if !user}

@@ -8,7 +8,7 @@
     - [x] Support drag-and-drop reordering of nodes.
     - [ ] Zoom and pan capabilities for larger maps.
     - [x] after click new node, the new node should be focused.
-    - [ ] **Export Options**: Export maps to PDF, PNG, or Markdown/Text outline.
+    - [x] **Export Options**: Export maps to PDF, PNG, or Markdown/Text outline.
 
 ## Bug
 - [x] Collaboration not need invite collaborator, just share link to collaborate.
