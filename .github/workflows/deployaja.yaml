@@ -2,9 +2,7 @@ name: CI/CD Keywordia DeployAja
 
 on:
   push:
-    branches: [ "main" ]  # CI jalan di main
-  pull_request:
-    branches: [ "main" ]  # PR review
+    branches: [ "master" ]  # CI jalan di main
 
 env:
   REGISTRY: ghcr.io/satriaaa766/keywordia
