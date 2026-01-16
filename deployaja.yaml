@@ -8,7 +8,7 @@ container:
 
 resources:
   cpu: 500m
-  memory: 512Mi
+  memory: 1G
   replicas: 1
 
 dependencies:
