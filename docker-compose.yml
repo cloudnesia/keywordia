@@ -11,23 +11,5 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  app:
-    build: .
-    ports:
-      - '5173:5173'
-    environment:
-      DATABASE_URL: "postgresql://user:password@postgres:5432/keywordia"
-      # Pass these from host .env or define here. 
-      # Since we are testing locally, we can assume the user will set them or we map .env
-      PUBLIC_GOOGLE_CLIENT_ID: ${PUBLIC_GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      JWT_SECRET: ${JWT_SECRET}
-      ORIGIN: ${ORIGIN}
-    volumes:
-      - .:/app
-    depends_on:
-      - postgres
-
 volumes:
   postgres_data:
