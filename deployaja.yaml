@@ -9,15 +9,14 @@ container:
 resources:
   cpu: 500m
   memory: 512Mi
-
-replicas: 1
+  replicas: 1
 
 dependencies:
   - name: postgresql
     type: POSTGRESQL
     version: '15'
     storage_size: 1Gi
-    
+
 env:
   - name: NODE_ENV
     value: production
