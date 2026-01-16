@@ -32,7 +32,7 @@ jobs:
     needs: build-and-push
     steps:
       - uses: actions/checkout@v4
-      - uses: deployaja/deployaja-cli@v0.0.10
+      - uses: deployaja/deployaja-cli@v0.0.17
         with:
           command: deploy
           api-token: ${{ secrets.DEPLOYAJA_TOKEN }}
