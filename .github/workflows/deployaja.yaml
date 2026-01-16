@@ -5,7 +5,7 @@ on:
     branches: [ "master" ]  # CI jalan di main
 
 env:
-  REGISTRY: ghcr.io/satriaaa766/keywordia
+  REGISTRY: ghcr.io/cloudnesia/keywordia
   IMAGE_NAME: keywordia
 
 jobs:
