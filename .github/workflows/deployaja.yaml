@@ -37,4 +37,4 @@ jobs:
           command: deploy
           api-token: ${{ secrets.DEPLOYAJA_TOKEN }}
           additional-args:
-            --set container.image=${{ env.REGISTRY }}:${{ github.sha }}            
+            --set container.image=${{ env.REGISTRY }}:${{ github.sha }}
