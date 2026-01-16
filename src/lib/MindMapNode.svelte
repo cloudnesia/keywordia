@@ -24,11 +24,17 @@
   let initialText = "";
   const DEFAULT_TEXT = "New Node";
 
-  // Presentation Mode: Collapse all except root when signal updates
-  $: if ($presentationSignal && $isPresentationMode) {
-    if (!isRoot) {
-      expanded = false;
+  // Presentation Mode: Handle enter (collapse) and exit (expand)
+  $: if ($presentationSignal) {
+    if ($isPresentationMode) {
+      // Enter: Collapse all except root
+      if (!isRoot) {
+        expanded = false;
+      } else {
+        expanded = true;
+      }
     } else {
+      // Exit: Expand all (recursive because every component instance reacts)
       expanded = true;
     }
   }
@@ -181,6 +187,12 @@
     {$isReadOnly || $isPresentationMode ? '' : 'hover:scale-105'}
     {$isPresentationMode && node.children.length > 0
       ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400'
+      : ''}
+    {!expanded &&
+    node.children &&
+    node.children.length > 0 &&
+    $isPresentationMode
+      ? 'shadow-[4px_4px_0_0_rgba(156,163,175,0.3),8px_8px_0_0_rgba(156,163,175,0.15)] dark:shadow-[4px_4px_0_0_rgba(75,85,99,0.5),8px_8px_0_0_rgba(75,85,99,0.3)]'
       : ''}
     {isRoot
       ? 'bg-blue-600 text-white text-xl font-bold shadow-lg'

@@ -8,6 +8,7 @@
         setMap,
         currentUser,
         mapOwnerId,
+        isPresentationMode,
     } from "$lib/store";
     import { page } from "$app/stores";
     import { onMount, onDestroy } from "svelte";
@@ -44,6 +45,10 @@
         }
         isRemoteUpdate = false;
         isReadOnly.set(data.isReadOnly);
+        // Default to Presentation Mode if read-only
+        if (data.isReadOnly) {
+            isPresentationMode.set(true);
+        }
     } else {
         // Fallback for new empty map if needed (though map usually exists)
         isRemoteUpdate = true;

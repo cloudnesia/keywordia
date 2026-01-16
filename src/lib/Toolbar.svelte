@@ -1,5 +1,12 @@
 <script>
-  import { theme, isReadOnly, mindMap, layout } from "./store";
+  import {
+    theme,
+    isReadOnly,
+    mindMap,
+    layout,
+    isPresentationMode,
+    presentationSignal,
+  } from "./store";
   import { toasts } from "./stores/toast";
   import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
@@ -13,15 +20,15 @@
   export let isOwner = false;
 
   let showShareModal = false;
-  let saveStatus = "Saved"; // 'Saved', 'Unsaved changes', 'Saving...', 'Error'
+  let saveStatus = "Saved";
   let hasUnsavedChanges = false;
   let isInitialLoad = true;
   let saveTimeout;
-  const DEBOUNCE_DELAY = 1000; // 1 second delay
+  const DEBOUNCE_DELAY = 1000;
 
   // React to store changes to auto-save with debounce
   $: {
-    $mindMap; // Dependency registration
+    $mindMap;
     if (isInitialLoad) {
       isInitialLoad = false;
     } else {
@@ -47,7 +54,6 @@
       const res = await fetch(`/api/map/${mapId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        // Use current store value at time of save execution
         body: JSON.stringify({ content: $mindMap }),
       });
       if (res.ok) {
@@ -74,7 +80,7 @@
       .then(async (res) => {
         if (res.ok) {
           toasts.add("Logged in successfully", "success");
-          setTimeout(() => location.reload(), 500); // Simple reload to refresh session
+          setTimeout(() => location.reload(), 500);
         } else {
           toasts.add("Login failed", "error");
         }
@@ -88,7 +94,7 @@
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       toasts.add("Logged out successfully", "success");
-      setTimeout(() => (location.href = "/"), 500); // Redirect to home
+      setTimeout(() => (location.href = "/"), 500);
     } catch (e) {
       toasts.add("Logout failed", "error");
     }
@@ -98,7 +104,7 @@
     // Google Login Init
     if (!user && window.google) {
       window.google.accounts.id.initialize({
-        client_id: PUBLIC_GOOGLE_CLIENT_ID, // Ideally from env public
+        client_id: PUBLIC_GOOGLE_CLIENT_ID,
         callback: handleLogin,
       });
       window.google.accounts.id.renderButton(
@@ -106,8 +112,6 @@
         { theme: "outline", size: "large" },
       );
     }
-
-    // Auto-save is now handled by reactive statement with debounce
   });
 
   onDestroy(() => {
@@ -131,7 +135,12 @@
   }
 
   function togglePresentation() {
-    isReadOnly.update((v) => !v);
+    isPresentationMode.update((v) => {
+      const newValue = !v;
+      // Trigger collapse/expand reset on both enter and exit
+      presentationSignal.update((n) => n + 1);
+      return newValue;
+    });
   }
 
   async function downloadJSON() {
@@ -178,12 +187,10 @@
     isExporting = true;
     exportMessage = `Generating ${type}...`;
 
-    // Determine background color based on current theme
     const isDark = $theme === "dark";
-    const backgroundColor = isDark ? "#111827" : "#f9fafb"; // gray-900 or gray-50
+    const backgroundColor = isDark ? "#111827" : "#f9fafb";
 
     try {
-      // Small delay to allow UI to update and show modal
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (type === "Markdown") {
@@ -222,9 +229,7 @@
     <h1
       class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent hidden sm:block"
     >
-    <a href="/">
-    Keywordia
-    </a>  
+      <a href="/"> Keywordia </a>
     </h1>
     {#if user}
       <span class="text-sm font-medium">Hello, {user.name}</span>
@@ -276,10 +281,14 @@
       {#if canEdit}
         <button
           on:click={togglePresentation}
-          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer"
-          title="Presentation Mode"
+          class="px-3 py-1.5 rounded-lg {$isPresentationMode
+            ? 'bg-indigo-600 text-white'
+            : 'bg-gray-200 dark:bg-gray-700'} hover:opacity-80 transition-all font-medium text-sm cursor-pointer"
+          title={$isPresentationMode
+            ? "Exit Presentation"
+            : "Start Presentation"}
         >
-          {$isReadOnly ? "✏️ Edit" : "📽️ Present Mode"}
+          {$isPresentationMode ? "Make changes data" : "Start Presentation"}
         </button>
       {/if}
 
