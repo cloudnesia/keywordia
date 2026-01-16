@@ -9,7 +9,6 @@ container:
 resources:
   cpu: 500m
   memory: 1G
-  replicas: 1
 
 dependencies:
   - name: postgresql
