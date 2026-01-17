@@ -120,9 +120,48 @@ export const addChild = (parentId) => {
     focusedNodeId.set(id); // Set focus to the new node
 };
 
+// Helper to find parent of a node
+const findParentRecursive = (node, childId) => {
+    if (node.children) {
+        if (node.children.some(c => c.id === childId)) {
+            return node;
+        }
+        for (const child of node.children) {
+            const parent = findParentRecursive(child, childId);
+            if (parent) return parent;
+        }
+    }
+    return null;
+};
+
 export const deleteNode = (id) => {
     if (id === 'root') return; // Cannot delete root
     recordHistory();
+
+    // Determine next focus target
+    const currentMap = get(mindMap);
+    const parent = findParentRecursive(currentMap, id);
+
+    if (parent && parent.children) {
+        const index = parent.children.findIndex(c => c.id === id);
+        let targetId = null;
+
+        if (index > 0) {
+            // Focus previous sibling
+            targetId = parent.children[index - 1].id;
+        } else if (parent.children.length > 1) {
+            // Focus next sibling (if it was the first child)
+            targetId = parent.children[index + 1].id;
+        } else {
+            // Focus parent
+            targetId = parent.id;
+        }
+
+        if (targetId) {
+            focusedNodeId.set(targetId);
+        }
+    }
+
     mindMap.update(tree => deleteNodeRecursive(tree, id));
 };
 
