@@ -52,6 +52,7 @@ COPY --from=builder /usr/src/app/build ./build
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /usr/src/app/prisma ./prisma
 COPY --from=builder /usr/src/app/src ./src
+COPY --from=builder /usr/src/app/prod-server.js ./prod-server.js
 
 EXPOSE 3000
 
@@ -59,4 +60,4 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0 
 ENV PORT=3000   
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node build/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node prod-server.js"]
