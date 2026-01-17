@@ -17,6 +17,7 @@
     import { io } from "socket.io-client";
 
     import ContributorList from "$lib/ContributorList.svelte";
+    import LoadingModal from "$lib/components/LoadingModal.svelte";
 
     export let data;
 
@@ -24,6 +25,7 @@
     let isRemoteUpdate = false;
     let lastLocalChange = 0;
     let contributors = [];
+    let isMapLoaded = false;
 
     // Sync User and Owner to Store
     $: if (data) {
@@ -129,6 +131,13 @@
         }
 
         fetchComments();
+
+        // Simulate loading briefly or wait for data?
+        // Data is passed from server (data.map), so it's technically "loaded" structure-wise.
+        // But we want to prevent interaction until hydration/mounting is stable.
+        setTimeout(() => {
+            isMapLoaded = true;
+        }, 800);
 
         // Initialize Socket.IO
         socket = io();
@@ -339,6 +348,14 @@
     on:keydown={() => {}}
     style="cursor: {isPanning ? 'grabbing' : 'grab'};"
 >
+    {#if !isMapLoaded}
+        <div
+            class="fixed inset-0 z-[100] bg-gray-50 dark:bg-gray-900 pointer-events-auto"
+        >
+            <LoadingModal isOpen={true} message="Loading Mind Map..." />
+        </div>
+    {/if}
+
     <!-- Contributor List -->
     <ContributorList {contributors} />
 
