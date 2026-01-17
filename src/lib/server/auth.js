@@ -8,16 +8,22 @@ const { GOOGLE_CLIENT_SECRET, JWT_SECRET } = privateEnv;
 
 const client = new OAuth2Client(PUBLIC_GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
 
-export const verifyGoogleToken = async (token) => {
+export const getGoogleUser = async (accessToken) => {
     try {
-        const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: PUBLIC_GOOGLE_CLIENT_ID,
+        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
         });
-        const payload = ticket.getPayload();
-        return payload;
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch user info');
+        }
+
+        const data = await response.json();
+        return data; // contains sub, name, email, picture
     } catch (error) {
-        console.error('Error verifying Google token:', error);
+        console.error('Error fetching Google user:', error);
         return null;
     }
 };

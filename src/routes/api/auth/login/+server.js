@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { verifyGoogleToken, signSession } from '$lib/server/auth';
+import { getGoogleUser, signSession } from '$lib/server/auth';
 import prisma from '$lib/server/prisma';
 
 export async function POST({ request, cookies }) {
@@ -9,7 +9,7 @@ export async function POST({ request, cookies }) {
         return json({ error: 'Missing token' }, { status: 400 });
     }
 
-    const payload = await verifyGoogleToken(token);
+    const payload = await getGoogleUser(token);
 
     if (!payload) {
         return json({ error: 'Invalid token' }, { status: 401 });
