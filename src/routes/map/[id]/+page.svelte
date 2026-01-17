@@ -148,6 +148,7 @@
     <Toolbar
         user={data.user}
         mapId={data.map.id}
+        mapSlug={data.map.slug}
         canEdit={!data.isReadOnly}
         isEditable={data.map.isEditable}
         isOwner={data.isOwner}

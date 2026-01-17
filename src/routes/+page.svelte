@@ -17,7 +17,7 @@
             });
             if (res.ok) {
                 const { map } = await res.json();
-                goto(`/map/${map.id}?focus=root`);
+                goto(`/map/${map.slug || map.id}?focus=root`);
             } else {
                 toasts.add("Failed to create map", "error");
             }

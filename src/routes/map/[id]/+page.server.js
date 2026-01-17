@@ -2,8 +2,13 @@ import prisma from '$lib/server/prisma';
 import { error } from '@sveltejs/kit';
 
 export async function load({ params, locals }) {
-    const map = await prisma.mindMap.findUnique({
-        where: { id: params.id },
+    const map = await prisma.mindMap.findFirst({
+        where: {
+            OR: [
+                { id: params.id },
+                { slug: params.id }
+            ]
+        },
         include: { collaborators: true }
     });
 

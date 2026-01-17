@@ -22,13 +22,40 @@ export async function POST({ request, locals }) {
 
     const { title } = await request.json();
 
-    const newMap = await prisma.mindMap.create({
-        data: {
-            title: title || 'Untitled Map',
-            ownerId: locals.user.id,
-            content: { id: 'root', text: 'Central Topic', children: [] },
-        },
-    });
+    // Simple slugify: lowercase, replace non-alphanumeric with hyphens, trim hyphens
+    let slug = (title || 'Untitled Map').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    if (!slug) slug = crypto.randomUUID();
 
-    return json({ map: newMap });
+    // Ensure uniqueness by checking or simple try/catch (for now we rely on user unique titles or let it fail/retry in client - or better, just append timestamp if collision? 
+    // For simplicity in this step, we'll try to create it. If it fails, we should handle it, but for this task we'll assume uniqueness for now or let Prisma throw.
+    // Actually, let's append a random suffix to be safe if it's very common, but clean slugs are nicer.
+    // Let's check if it exists first? No, race condition.
+    // Let's just create. 
+
+    try {
+        const newMap = await prisma.mindMap.create({
+            data: {
+                title: title || 'Untitled Map',
+                ownerId: locals.user.id,
+                slug: slug,
+                content: { id: 'root', text: title || 'Central Topic', children: [] },
+            },
+        });
+        return json({ map: newMap });
+    } catch (e) {
+        // If slug collision (code P2002), append random
+        if (e.code === 'P2002') {
+            const newSlug = `${slug}-${Date.now()}`;
+            const newMap = await prisma.mindMap.create({
+                data: {
+                    title: title || 'Untitled Map',
+                    ownerId: locals.user.id,
+                    slug: newSlug,
+                    content: { id: 'root', text: title || 'Central Topic', children: [] },
+                },
+            });
+            return json({ map: newMap });
+        }
+        throw e;
+    }
 }

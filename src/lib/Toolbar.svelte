@@ -16,16 +16,20 @@
 
   export let user = null;
   export let mapId = null;
+  export let mapSlug = null;
   export let canEdit = false;
   export let isEditable = false;
   export let isOwner = false;
+
+  // Update url to construction if mapSlug is present
+  $: shareUrl = mapSlug ? `${$page.url.origin}/map/${mapSlug}` : $page.url.href;
 
   let showShareModal = false;
   let saveStatus = "Saved";
   let hasUnsavedChanges = false;
   let isInitialLoad = true;
   let saveTimeout;
-  const DEBOUNCE_DELAY = 1000;
+  const DEBOUNCE_DELAY = 5000;
 
   // React to store changes to auto-save with debounce
   $: {
@@ -60,7 +64,18 @@
       if (res.ok) {
         hasUnsavedChanges = false;
         saveStatus = "Saved";
-        toasts.add("Map saved successfully", "success");
+
+        // Update slug if changed
+        try {
+          const data = await res.json();
+          if (data.map && data.map.slug && data.map.slug !== mapSlug) {
+            mapSlug = data.map.slug;
+          }
+        } catch (e) {
+          /* ignore json parse error */
+        }
+
+        // toasts.add("Map saved successfully", "success");
       } else {
         saveStatus = "Not saved (Server Error)";
         toasts.add("Failed to save map", "error");
@@ -215,7 +230,7 @@
 
 <ShareModal
   isOpen={showShareModal}
-  url={$page.url.href}
+  url={shareUrl}
   {mapId}
   {isEditable}
   {user}

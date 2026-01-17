@@ -68,11 +68,15 @@
     // Restore default text if empty
     if (text === "") {
       finalVal = isRoot ? "Central Topic" : "New Node";
-      updateNodeText(node.id, finalVal);
+      if (finalVal !== node.text) {
+        updateNodeText(node.id, finalVal);
+      }
       element.textContent = finalVal;
     } else {
-      // Ensure store is synced (redundant with handleInput but safe)
-      updateNodeText(node.id, finalVal);
+      // Only update if text has changed to prevent unnecessary triggers
+      if (finalVal !== node.text) {
+        updateNodeText(node.id, finalVal);
+      }
     }
 
     // Commit if changed effective text, else discard
@@ -86,7 +90,7 @@
   }
 
   function handleInput(e) {
-    updateNodeText(node.id, e.target.textContent);
+    // Removed updateNodeText to prevent auto-save on every keystroke
   }
 
   function handleFocus(e) {
@@ -96,7 +100,7 @@
     const text = e.target.textContent.trim();
     if (text === "New Node" || (isRoot && text === "Central Topic")) {
       e.target.textContent = "";
-      updateNodeText(node.id, "");
+      // Removed updateNodeText to prevent auto-save on focus
     }
 
     if ($focusedNodeId === node.id) {

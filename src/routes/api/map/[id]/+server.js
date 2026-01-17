@@ -47,19 +47,55 @@ export async function PUT({ params, request, locals }) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
     }
 
-    const updatedMap = await prisma.mindMap.update({
-        where: { id },
-        data: {
-            content: content !== undefined ? content : undefined,
-            title: title !== undefined ? title : undefined,
-            isPublic: isPublic !== undefined ? isPublic : undefined,
-        },
-    });
+    let updateData = {
+        content: content !== undefined ? content : undefined,
+        title: title !== undefined ? title : undefined,
+        isPublic: isPublic !== undefined ? isPublic : undefined,
+    };
 
-    // Notify connected clients via WebSocket
-    if (global.io) {
-        global.io.to(id).emit('map-updated');
+    // If content is being updated, check if we need to sync title and slug from central node
+    if (content && content.text) {
+        const newTitle = content.text.trim();
+        // Only update if the title effectively changed and it's not empty
+        if (newTitle && newTitle !== map.title) {
+            updateData.title = newTitle;
+
+            // Generate new slug
+            let slug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            if (!slug) slug = crypto.randomUUID();
+            updateData.slug = slug;
+        }
     }
 
-    return json({ map: updatedMap });
+    try {
+        const updatedMap = await prisma.mindMap.update({
+            where: { id },
+            data: updateData,
+        });
+
+        // Notify connected clients via WebSocket
+        if (global.io) {
+            global.io.to(id).emit('map-updated');
+        }
+
+        return json({ map: updatedMap });
+
+    } catch (e) {
+        // Handle Slug Collision
+        if (e.code === 'P2002' && updateData.slug) {
+            const newSlug = `${updateData.slug}-${Date.now()}`;
+            updateData.slug = newSlug;
+
+            const updatedMap = await prisma.mindMap.update({
+                where: { id },
+                data: updateData,
+            });
+
+            if (global.io) {
+                global.io.to(id).emit('map-updated');
+            }
+            return json({ map: updatedMap });
+        }
+        throw e;
+    }
 }
