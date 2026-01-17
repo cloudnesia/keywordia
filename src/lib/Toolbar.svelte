@@ -10,7 +10,8 @@
   import { toasts } from "./stores/toast";
   import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
-  import { PUBLIC_GOOGLE_CLIENT_ID } from "$env/static/public";
+  import { env } from "$env/dynamic/public";
+  const { PUBLIC_GOOGLE_CLIENT_ID } = env;
   import ShareModal from "./ShareModal.svelte";
 
   export let user = null;
