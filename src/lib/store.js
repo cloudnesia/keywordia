@@ -16,6 +16,8 @@ export const currentUser = writable(null);
 export const mapOwnerId = writable(null);
 export const isPresentationMode = writable(false);
 export const presentationSignal = writable(0);
+export const comments = writable({}); // Map of nodeId -> Comment[]
+export const activeCommentNodeId = writable(null);
 
 if (typeof window !== 'undefined') {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

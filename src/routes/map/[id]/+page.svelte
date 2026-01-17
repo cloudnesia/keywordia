@@ -9,6 +9,8 @@
         currentUser,
         mapOwnerId,
         isPresentationMode,
+        comments,
+        activeCommentNodeId,
     } from "$lib/store";
     import { page } from "$app/stores";
     import { onMount, onDestroy } from "svelte";
@@ -102,10 +104,31 @@
         }
     }
 
+    async function fetchComments() {
+        if (!data.map.id) return;
+        try {
+            const res = await fetch(`/api/comments?mindMapId=${data.map.id}`);
+            if (res.ok) {
+                const fetchedComments = await res.json();
+                // Group by nodeId
+                const grouped = {};
+                fetchedComments.forEach((c) => {
+                    if (!grouped[c.nodeId]) grouped[c.nodeId] = [];
+                    grouped[c.nodeId].push(c);
+                });
+                comments.set(grouped);
+            }
+        } catch (e) {
+            console.error("Fetch comments error", e);
+        }
+    }
+
     onMount(() => {
         if ($page.url.searchParams.get("focus") === "root") {
             focusedNodeId.set("root");
         }
+
+        fetchComments();
 
         // Initialize Socket.IO
         socket = io();
@@ -131,16 +154,90 @@
         socket.on("contributors-updated", (users) => {
             contributors = users;
         });
+
+        socket.on("comment-added", (comment) => {
+            comments.update((all) => {
+                const nodeComments = all[comment.nodeId] || [];
+                return {
+                    ...all,
+                    [comment.nodeId]: [comment, ...nodeComments], // Descending order usually, but here we prepend newly created
+                };
+            });
+        });
+
+        socket.on("comment-deleted", (id) => {
+            comments.update((all) => {
+                const newAll = { ...all };
+                for (const nodeId in newAll) {
+                    newAll[nodeId] = newAll[nodeId].filter((c) => c.id !== id);
+                }
+                return newAll;
+            });
+        });
     });
 
     onDestroy(() => {
         if (socket) socket.disconnect();
-        unsubscribe(); // Clean up subscription
+        unsubscribe();
     });
+
+    let pan = { x: 0, y: 0 };
+    let isPanning = false;
+    let startPos = { x: 0, y: 0 };
+    let activeCommentId;
+
+    // Subscribe to store to know active comment
+    // Subscribe to store to know active comment
+    comments.subscribe(() => {}); // Just to ensure store is active if needed (though we need activeCommentNodeId actually)
+    activeCommentNodeId.subscribe((val) => (activeCommentId = val));
+
+    function handleMouseDown(e) {
+        // Only pan if clicking on the background (not toolbar, nodes, etc which stop propagation)
+        // We can check target or rely on inner elements stopping propagation.
+        // MindMapNode seems to stop propagation on clicks?
+        // MindMapNode: on:click|stopPropagation={handleNodeClick}
+        // Yes.
+        if (e.button !== 0) return; // Only left click
+        isPanning = true;
+        startPos = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    }
+
+    function handleMouseMove(e) {
+        if (!isPanning) return;
+        pan = {
+            x: e.clientX - startPos.x,
+            y: e.clientY - startPos.y,
+        };
+    }
+
+    function handleMouseUp() {
+        isPanning = false;
+    }
+
+    function handleBackgroundClick(e) {
+        // If we were panning (moved significantly), don't treat as click?
+        // Actually click event usually fires after mouseup.
+        // We can check if isPanning was just true? No, mouseup sets it false.
+        // But usually clicks on background are for closing things.
+
+        // Close comment box if open
+        if (activeCommentId) {
+            activeCommentNodeId.set(null);
+        }
+    }
 </script>
 
 <div
-    class="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-auto transition-colors duration-300 relative"
+    class="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden relative select-none"
+    on:mousedown={handleMouseDown}
+    on:mousemove={handleMouseMove}
+    on:mouseup={handleMouseUp}
+    on:mouseleave={handleMouseUp}
+    on:click={handleBackgroundClick}
+    role="button"
+    tabindex="0"
+    on:keydown={() => {}}
+    style="cursor: {isPanning ? 'grabbing' : 'grab'};"
 >
     <!-- Contributor List -->
     <ContributorList {contributors} />
@@ -154,13 +251,25 @@
         isOwner={data.isOwner}
     />
 
-    <div class="pt-32 pb-20 px-8 flex justify-center min-w-max">
-        <!-- Export Container: Wraps strictly the map content -->
+    <div
+        class="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none"
+    >
+        <!-- Map Container: movable -->
+        <!-- Pointer events auto on children, none on wrapper to let clicks pass to background? 
+             Wait, we want clicks on background to pan. 
+             If wrapper is pointer-events-none, clicks go to background div? Yes.
+             But children (nodes) need pointer-events-auto.
+        -->
         <div
             id="map-container"
-            class="p-8 rounded-xl bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+            class="p-8 transition-transform duration-75 pointer-events-auto"
+            style="transform: translate({pan.x}px, {pan.y}px);"
         >
-            <MindMapNode node={$mindMap} isRoot={true} />
+            <MindMapNode
+                node={$mindMap}
+                isRoot={true}
+                mindMapId={data.map.id}
+            />
         </div>
     </div>
 </div>

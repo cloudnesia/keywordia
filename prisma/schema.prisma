@@ -17,6 +17,7 @@ model User {
   updatedAt DateTime  @updatedAt
   maps      MindMap[]      @relation("Owner")
   sharedMaps MindMap[]     @relation("Collaborators")
+  comments  Comment[]
 }
 
 model MindMap {
@@ -31,4 +32,16 @@ model MindMap {
   collaborators User[] @relation("Collaborators")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  comments  Comment[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String
+  nodeId    String   // ID of the node in the JSON tree
+  mindMapId String
+  mindMap   MindMap  @relation(fields: [mindMapId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }

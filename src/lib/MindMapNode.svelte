@@ -1,4 +1,5 @@
 <script>
+  import CommentBox from "./components/CommentBox.svelte";
   import {
     addChild,
     updateNodeText,
@@ -13,16 +14,40 @@
     discardTransaction,
     isPresentationMode,
     presentationSignal,
+    comments,
+    activeCommentNodeId,
+    currentUser,
   } from "./store";
-  import { onMount } from "svelte";
+  import { onMount, createEventDispatcher } from "svelte";
 
   export let node;
   export let isRoot = false;
+  // We need mindMapId to pass to CommentBox.
+  // Since MindMapNode is recursive, we might need to pass it down or get it from store (which we need to add if not exists, but we can verify param).
+  // Actually, we can get it from page params if we were in a page, but here we are in a component.
+  // Ideally, `mindMap` store should have the ID? `mindMap` store structure is just the tree content according to store.js: { id: 'root', text... }
+  // We need the ACTUAL map ID for the DB.
+  // Let's check `src/routes/[id]/+page.svelte` or similar to see how map ID is handled.
+  // For now I'll add a prop `mindMapId` to MindMapNode and cascade it.
+  export let mindMapId;
 
   let expanded = true;
   let element; // Reference to the contenteditable div
   let initialText = "";
   const DEFAULT_TEXT = "New Node";
+
+  // Reactive comments for this node
+  $: nodeComments = $comments[node.id] || [];
+  $: commentCount = nodeComments.length;
+  $: showCommentBox = $activeCommentNodeId === node.id;
+
+  function toggleCommentBox() {
+    if ($activeCommentNodeId === node.id) {
+      activeCommentNodeId.set(null);
+    } else {
+      activeCommentNodeId.set(node.id);
+    }
+  }
 
   // Presentation Mode: Handle enter (collapse) and exit (expand)
   $: if ($presentationSignal) {
@@ -33,6 +58,7 @@
       } else {
         expanded = true;
       }
+      activeCommentNodeId.set(null); // Close comments in presentation mode
     } else {
       // Exit: Expand all (recursive because every component instance reacts)
       expanded = true;
@@ -187,7 +213,8 @@
     on:keypress={(e) => {
       if (e.key === "Enter") handleNodeClick();
     }}
-    class="flex items-center gap-2 p-2 rounded-lg transition-all duration-300 z-10 relative group
+    class="flex items-center gap-2 p-2 rounded-lg transition-all duration-300 relative group
+    {showCommentBox ? 'z-[100]' : 'z-10'}
     {$isReadOnly || $isPresentationMode ? '' : 'hover:scale-105'}
     {$isPresentationMode && node.children.length > 0
       ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400'
@@ -234,6 +261,58 @@
       placeholder="Node"
     ></div>
 
+    <!-- Comment Icon -->
+    {#if !$isPresentationMode || commentCount > 0}
+      <button
+        on:click|stopPropagation={toggleCommentBox}
+        class="absolute p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group/comment
+        {$layout === 'top-down'
+          ? '-right-0 top-1/2 translate-x-1/2 -translate-y-1/2'
+          : 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2'}
+        {commentCount === 0
+          ? 'opacity-0 group-hover:opacity-100'
+          : 'opacity-100'}"
+        title="Comments"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="w-4 h-4 text-gray-400 group-hover/comment:text-indigo-500 {commentCount >
+          0
+            ? 'hidden'
+            : 'block'}"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
+          />
+        </svg>
+
+        {#if commentCount > 0}
+          <div
+            class="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] text-white font-bold"
+          >
+            {commentCount > 9 ? "9+" : commentCount}
+          </div>
+        {/if}
+      </button>
+    {/if}
+
+    <!-- Comment Box (Floating) -->
+    {#if showCommentBox}
+      <CommentBox
+        nodeId={node.id}
+        {mindMapId}
+        {nodeComments}
+        isReadOnly={$isReadOnly || $isPresentationMode}
+        on:close={() => activeCommentNodeId.set(null)}
+      />
+    {/if}
+
     <!-- Add Child Button -->
     {#if !$isReadOnly && !$isPresentationMode}
       <button
@@ -249,7 +328,6 @@
     {/if}
   </div>
 
-  <!-- Children Container -->
   <!-- Children Container -->
   {#if expanded && node.children && node.children.length > 0}
     <div
@@ -312,7 +390,7 @@
 
           <!-- Padding for the line -->
           <div class={$layout === "top-down" ? "pt-4" : "pl-4"}>
-            <svelte:self node={child} />
+            <svelte:self node={child} {mindMapId} />
           </div>
         </div>
       {/each}
