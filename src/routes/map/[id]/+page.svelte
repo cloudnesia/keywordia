@@ -182,45 +182,141 @@
     });
 
     let pan = { x: 0, y: 0 };
+    let scale = 1;
     let isPanning = false;
-    let startPos = { x: 0, y: 0 };
+    let isPinching = false;
+    let lastMousePos = { x: 0, y: 0 };
+    let lastTouchCenter = { x: 0, y: 0 };
+    let lastTouchDistance = 0;
+
     let activeCommentId;
 
     // Subscribe to store to know active comment
-    // Subscribe to store to know active comment
-    comments.subscribe(() => {}); // Just to ensure store is active if needed (though we need activeCommentNodeId actually)
+    comments.subscribe(() => {});
     activeCommentNodeId.subscribe((val) => (activeCommentId = val));
 
     function handleMouseDown(e) {
-        // Only pan if clicking on the background (not toolbar, nodes, etc which stop propagation)
-        // We can check target or rely on inner elements stopping propagation.
-        // MindMapNode seems to stop propagation on clicks?
-        // MindMapNode: on:click|stopPropagation={handleNodeClick}
-        // Yes.
         if (e.button !== 0) return; // Only left click
         isPanning = true;
-        startPos = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        lastMousePos = { x: e.clientX, y: e.clientY };
     }
 
     function handleMouseMove(e) {
         if (!isPanning) return;
-        pan = {
-            x: e.clientX - startPos.x,
-            y: e.clientY - startPos.y,
-        };
+        const dx = e.clientX - lastMousePos.x;
+        const dy = e.clientY - lastMousePos.y;
+        lastMousePos = { x: e.clientX, y: e.clientY };
+        pan = { x: pan.x + dx, y: pan.y + dy };
     }
 
     function handleMouseUp() {
         isPanning = false;
     }
 
-    function handleBackgroundClick(e) {
-        // If we were panning (moved significantly), don't treat as click?
-        // Actually click event usually fires after mouseup.
-        // We can check if isPanning was just true? No, mouseup sets it false.
-        // But usually clicks on background are for closing things.
+    function handleWheel(e) {
+        // e.preventDefault() is handled by Svelte modifier
+        const zoomIntensity = 0.1;
+        const direction = e.deltaY < 0 ? 1 : -1;
+        const factor = 1 + zoomIntensity * direction;
 
-        // Close comment box if open
+        const rect = e.currentTarget.getBoundingClientRect();
+        // Mouse relative to container (viewport) is just clientX/Y because container covers screen
+        // But let's be safe if container has offset (it shouldn't in this layout)
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+
+        zoom(factor, { x: mouseX, y: mouseY });
+    }
+
+    function zoom(factor, center) {
+        const minScale = 0.1;
+        const maxScale = 5;
+        let newScale = scale * factor;
+
+        // Clamp scale
+        if (newScale < minScale) newScale = minScale;
+        if (newScale > maxScale) newScale = maxScale;
+
+        // Recalculate factor in case it was clamped
+        const actualFactor = newScale / scale;
+
+        // Adjust pan to zoom towards center
+        pan = {
+            x: center.x - (center.x - pan.x) * actualFactor,
+            y: center.y - (center.y - pan.y) * actualFactor,
+        };
+        scale = newScale;
+    }
+
+    // Touch Handlers
+    function handleTouchStart(e) {
+        if (e.touches.length === 1) {
+            isPanning = true;
+            isPinching = false;
+            lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        } else if (e.touches.length === 2) {
+            isPanning = false;
+            isPinching = true;
+            lastTouchDistance = getDistance(e.touches);
+            lastTouchCenter = getCenter(e.touches);
+        }
+    }
+
+    function handleTouchMove(e) {
+        e.preventDefault(); // Prevent scrolling the page
+
+        if (isPanning && e.touches.length === 1) {
+            const dx = e.touches[0].clientX - lastMousePos.x;
+            const dy = e.touches[0].clientY - lastMousePos.y;
+            lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            pan = { x: pan.x + dx, y: pan.y + dy };
+        } else if (isPinching && e.touches.length === 2) {
+            const currentDistance = getDistance(e.touches);
+            const currentCenter = getCenter(e.touches);
+
+            // 1. Pan by center movement
+            const dx = currentCenter.x - lastTouchCenter.x;
+            const dy = currentCenter.y - lastTouchCenter.y;
+            pan = { x: pan.x + dx, y: pan.y + dy };
+
+            // 2. Zoom
+            if (lastTouchDistance > 0) {
+                const factor = currentDistance / lastTouchDistance;
+                zoom(factor, currentCenter);
+            }
+
+            lastTouchDistance = currentDistance;
+            lastTouchCenter = currentCenter;
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (e.touches.length === 0) {
+            isPanning = false;
+            isPinching = false;
+        } else if (e.touches.length === 1) {
+            // Switch back to panning if one finger remains?
+            // Usually feels better to reset state to avoid jump
+            isPanning = true;
+            isPinching = false;
+            lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+    }
+
+    function getDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getCenter(touches) {
+        return {
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2,
+        };
+    }
+
+    function handleBackgroundClick(e) {
         if (activeCommentId) {
             activeCommentNodeId.set(null);
         }
@@ -228,11 +324,15 @@
 </script>
 
 <div
-    class="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden relative select-none"
+    class="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden relative select-none touch-none"
     on:mousedown={handleMouseDown}
     on:mousemove={handleMouseMove}
     on:mouseup={handleMouseUp}
     on:mouseleave={handleMouseUp}
+    on:wheel|preventDefault={handleWheel}
+    on:touchstart={handleTouchStart}
+    on:touchmove|nonpassive={handleTouchMove}
+    on:touchend={handleTouchEnd}
     on:click={handleBackgroundClick}
     role="button"
     tabindex="0"
@@ -262,8 +362,8 @@
         -->
         <div
             id="map-container"
-            class="p-8 transition-transform duration-75 pointer-events-auto"
-            style="transform: translate({pan.x}px, {pan.y}px);"
+            class="p-8 transition-transform duration-0 pointer-events-auto origin-top-left"
+            style="transform: translate({pan.x}px, {pan.y}px) scale({scale});"
         >
             <MindMapNode
                 node={$mindMap}

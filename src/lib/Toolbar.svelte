@@ -244,7 +244,7 @@
 />
 
 <div
-  class="fixed top-4 left-4 right-4 flex justify-between items-center bg-white/10 backdrop-blur-md p-2 rounded-xl shadow-lg z-50 border border-white/20"
+  class="fixed top-4 left-4 right-4 flex justify-between items-center bg-white/10 backdrop-blur-md p-2 rounded-xl shadow-lg z-50 border border-white/20 overflow-x-auto max-w-[calc(100vw-2rem)] no-scrollbar"
 >
   <div class="flex items-center gap-2">
     <Logo size={8} />
@@ -258,12 +258,12 @@
     {/if}
   </div>
 
-  <div class="flex gap-2 items-center">
+  <div class="flex gap-2 items-center flex-nowrap">
     {#if mapId}
       <!-- Status Indicator -->
       {#if canEdit}
         <span
-          class="text-xs font-mono px-2 min-w-[80px] text-right {saveStatus.includes(
+          class="text-xs font-mono px-2 min-w-[80px] text-right hidden sm:block {saveStatus.includes(
             'not saved',
           )
             ? 'text-red-500 font-bold'
@@ -275,10 +275,13 @@
 
       <button
         on:click={toggleLayout}
-        class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer"
+        class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer whitespace-nowrap"
         title="Toggle Layout"
       >
-        {$layout === "top-down" ? "⬇️ Tree" : "➡️ Linear"}
+        <span>{$layout === "top-down" ? "⬇️" : "➡️"}</span>
+        <span class="hidden sm:inline ml-1"
+          >{$layout === "top-down" ? "Tree" : "Linear"}</span
+        >
       </button>
 
       {#if isOwner}
@@ -305,12 +308,15 @@
           on:click={togglePresentation}
           class="px-3 py-1.5 rounded-lg {$isPresentationMode
             ? 'bg-indigo-600 text-white'
-            : 'bg-gray-200 dark:bg-gray-700'} hover:opacity-80 transition-all font-medium text-sm cursor-pointer"
+            : 'bg-gray-200 dark:bg-gray-700'} hover:opacity-80 transition-all font-medium text-sm cursor-pointer whitespace-nowrap"
           title={$isPresentationMode
             ? "Exit Presentation"
             : "Start Presentation"}
         >
-          {$isPresentationMode ? "Make changes data" : "Start Presentation"}
+          <span class="mr-1">{$isPresentationMode ? "❌" : "📺"}</span>
+          <span class="hidden sm:inline"
+            >{$isPresentationMode ? "Exit" : "Present"}</span
+          >
         </button>
       {/if}
 
@@ -319,7 +325,7 @@
       {#if isOwner}
         <button
           on:click={openShare}
-          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer"
+          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer whitespace-nowrap"
           >Share</button
         >
       {/if}
@@ -327,9 +333,10 @@
       <!-- Export Dropdown -->
       <div class="relative group">
         <button
-          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer flex items-center gap-1"
+          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer flex items-center gap-1 whitespace-nowrap"
         >
-          📤 Export
+          <span>📤</span>
+          <span class="hidden sm:inline">Export</span>
         </button>
         <!-- Dropdown wrapper with top padding to bridge the gap -->
         <div
@@ -395,7 +402,7 @@
     {:else}
       <button
         on:click={handleLogout}
-        class="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-all font-medium text-sm cursor-pointer"
+        class="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-all font-medium text-sm cursor-pointer whitespace-nowrap"
         >Logout</button
       >
     {/if}
