@@ -5,6 +5,7 @@ RUN apk add --no-cache \
     nss \
     freetype \
     freetype-dev \
+    openssl \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
@@ -21,7 +22,12 @@ RUN npm ci
 
 COPY . .
 
+RUN npx svelte-kit sync
+ENV PUBLIC_GOOGLE_CLIENT_ID="PUBLIC_GOOGLE_CLIENT_ID"
+ENV GOOGLE_CLIENT_SECRET="PRIVATE_GOOGLE_API_KEY"
+ENV JWT_SECRET="jwt"
 RUN npx prisma generate
+
 
 RUN npm run build
 
@@ -32,6 +38,7 @@ RUN apk add --no-cache \
     nss \
     freetype \
     freetype-dev \
+    openssl \
     harfbuzz \
     ca-certificates \
     ttf-freefont
