@@ -13,6 +13,7 @@
   import { env } from "$env/dynamic/public";
   const { PUBLIC_GOOGLE_CLIENT_ID } = env;
   import ShareModal from "./ShareModal.svelte";
+  import { fly } from "svelte/transition";
 
   export let user = null;
   export let mapId = null;
@@ -190,6 +191,32 @@
   let isExporting = false;
   let exportMessage = "Exporting...";
 
+  let showExportMenu = false;
+  let exportBtn;
+  let menuPos = { top: 0, right: 0 };
+
+  function toggleExportMenu() {
+    if (!showExportMenu && exportBtn) {
+      const rect = exportBtn.getBoundingClientRect();
+      menuPos = {
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      };
+    }
+    showExportMenu = !showExportMenu;
+  }
+
+  function handleWindowClick(e) {
+    if (
+      showExportMenu &&
+      !e.target.closest(".export-menu") &&
+      exportBtn &&
+      !exportBtn.contains(e.target)
+    ) {
+      showExportMenu = false;
+    }
+  }
+
   // Keyboard Shortcuts
   function handleKeydown(e) {
     if (!isOwner) return;
@@ -231,7 +258,7 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={handleKeydown} on:click={handleWindowClick} />
 <LoadingModal isOpen={isExporting} message={exportMessage} />
 
 <ShareModal
@@ -330,48 +357,17 @@
         >
       {/if}
 
-      <!-- Export Dropdown -->
-      <div class="relative group">
-        <button
-          class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer flex items-center gap-1 whitespace-nowrap"
-        >
-          <span>📤</span>
-          <span class="hidden sm:inline">Export</span>
-        </button>
-        <!-- Dropdown wrapper with top padding to bridge the gap -->
-        <div
-          class="absolute right-0 top-full w-48 hidden group-hover:block z-50 pt-2"
-        >
-          <div
-            class="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-          >
-            <button
-              on:click={downloadJSON}
-              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
-            >
-              📄 JSON (Backup)
-            </button>
-            <button
-              on:click={() => handleExport("Markdown")}
-              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
-            >
-              📝 Markdown
-            </button>
-            <button
-              on:click={() => handleExport("PNG")}
-              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
-            >
-              🖼️ Image (PNG)
-            </button>
-            <button
-              on:click={() => handleExport("PDF")}
-              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
-            >
-              📑 PDF
-            </button>
-          </div>
-        </div>
-      </div>
+      <!-- Export Button -->
+      <button
+        bind:this={exportBtn}
+        on:click|stopPropagation={toggleExportMenu}
+        class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:opacity-80 transition-all font-medium text-sm cursor-pointer flex items-center gap-1 whitespace-nowrap {showExportMenu
+          ? 'ring-2 ring-blue-400'
+          : ''}"
+      >
+        <span>📤</span>
+        <span class="hidden sm:inline">Export</span>
+      </button>
     {/if}
 
     {#if !user}
@@ -408,3 +404,36 @@
     {/if}
   </div>
 </div>
+
+{#if showExportMenu}
+  <div
+    class="export-menu fixed z-[60] w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+    style="top: {menuPos.top}px; right: {menuPos.right}px;"
+    transition:fly={{ y: -10, duration: 200 }}
+  >
+    <button
+      on:click={downloadJSON}
+      class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+    >
+      📄 JSON (Backup)
+    </button>
+    <button
+      on:click={() => handleExport("Markdown")}
+      class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+    >
+      📝 Markdown
+    </button>
+    <button
+      on:click={() => handleExport("PNG")}
+      class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+    >
+      🖼️ Image (PNG)
+    </button>
+    <button
+      on:click={() => handleExport("PDF")}
+      class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer"
+    >
+      📑 PDF
+    </button>
+  </div>
+{/if}
