@@ -160,10 +160,14 @@
     // Delete/Backspace: Delete Node
     if (
       e.key === "Delete" ||
-      (e.key === "Backspace" && e.target.textContent === "")
+      (e.key === "Backspace" && e.target.textContent.trim() === "")
     ) {
       if (!isRoot) {
-        if (node.text === "" || node.text === "New Node") {
+        if (
+          node.text === "" ||
+          node.text === "New Node" ||
+          e.target.textContent.trim() === ""
+        ) {
           e.preventDefault();
 
           // For delete, we just want to discard any pending text transaction
