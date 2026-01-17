@@ -116,7 +116,7 @@
   }
 
   function handleInput(e) {
-    // Removed updateNodeText to prevent auto-save on every keystroke
+    updateNodeText(node.id, e.target.textContent);
   }
 
   function handleFocus(e) {

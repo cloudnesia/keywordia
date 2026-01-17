@@ -49,15 +49,18 @@
         }
         isRemoteUpdate = false;
         isReadOnly.set(data.isReadOnly);
-        // Default to Presentation Mode if read-only
+        // Default to Presentation Mode if read-only, otherwise ensure Edit Mode
         if (data.isReadOnly) {
             isPresentationMode.set(true);
+        } else {
+            isPresentationMode.set(false);
         }
     } else {
         // Fallback for new empty map if needed (though map usually exists)
         isRemoteUpdate = true;
         setMap({ id: "root", text: "Central Topic", children: [] });
         isRemoteUpdate = false;
+        isPresentationMode.set(false);
     }
 
     // Subscribe to track ONLY local user changes
