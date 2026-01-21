@@ -119,21 +119,38 @@
 
   onMount(() => {
     // Google Login Init
-    if (!user && window.google) {
-      /* global google */
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: PUBLIC_GOOGLE_CLIENT_ID,
-        scope: "openid profile email",
-        callback: (tokenResponse) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            handleLogin(tokenResponse.access_token);
-          }
-        },
-      });
+    if (!user) {
+      const initGoogle = () => {
+        if (window.google) {
+          /* global google */
+          const client = google.accounts.oauth2.initTokenClient({
+            client_id: PUBLIC_GOOGLE_CLIENT_ID,
+            scope: "openid profile email",
+            callback: (tokenResponse) => {
+              if (tokenResponse && tokenResponse.access_token) {
+                handleLogin(tokenResponse.access_token);
+              }
+            },
+          });
 
-      window.googleLogin = () => {
-        client.requestAccessToken();
+          window.googleLogin = () => {
+            client.requestAccessToken();
+          };
+          return true;
+        }
+        return false;
       };
+
+      if (!initGoogle()) {
+        const interval = setInterval(() => {
+          if (initGoogle()) {
+            clearInterval(interval);
+          }
+        }, 100);
+
+        // Clear interval after 10 seconds to avoid infinite polling
+        setTimeout(() => clearInterval(interval), 10000);
+      }
     }
   });
 
