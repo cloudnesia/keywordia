@@ -18,6 +18,7 @@ export const isPresentationMode = writable(false);
 export const presentationSignal = writable(0);
 export const comments = writable({}); // Map of nodeId -> Comment[]
 export const activeCommentNodeId = writable(null);
+export const activeDocNodeId = writable(null); // Node ID currently being edited in Doc Editor
 
 if (typeof window !== 'undefined') {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -100,6 +101,10 @@ const addSiblingRecursive = (node, childId, newSibling) => {
 
 export const updateNodeText = (id, text) => {
     mindMap.update(tree => updateNodeRecursive(tree, id, n => ({ ...n, text })));
+};
+
+export const updateNodeContent = (id, content) => {
+    mindMap.update(tree => updateNodeRecursive(tree, id, n => ({ ...n, docContent: content })));
 };
 
 export const addChild = (parentId) => {

@@ -17,6 +17,7 @@
     comments,
     activeCommentNodeId,
     currentUser,
+    activeDocNodeId,
   } from "./store";
   import { onMount, createEventDispatcher } from "svelte";
 
@@ -47,6 +48,10 @@
     } else {
       activeCommentNodeId.set(node.id);
     }
+  }
+
+  function openDocEditor() {
+    activeDocNodeId.set(node.id);
   }
 
   // Presentation Mode: Handle enter (collapse) and exit (expand)
@@ -267,43 +272,64 @@
 
     <!-- Comment Icon -->
     {#if !$isPresentationMode || commentCount > 0}
-      <button
-        on:click|stopPropagation={toggleCommentBox}
-        class="absolute p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group/comment
+      <div
+        class="absolute
         {$layout === 'top-down'
           ? '-right-0 top-1/2 translate-x-1/2 -translate-y-1/2'
           : 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2'}
-        {commentCount === 0
-          ? 'opacity-0 group-hover:opacity-100'
-          : 'opacity-100'}"
-        title="Comments"
+        flex gap-1 items-center
+      "
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          class="w-4 h-4 text-gray-400 group-hover/comment:text-indigo-500 {commentCount >
-          0
-            ? 'hidden'
-            : 'block'}"
+        <!-- Doc Icon -->
+        <button
+          on:click|stopPropagation={openDocEditor}
+          class="p-1 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-sm border border-gray-200 dark:border-gray-700
+           opacity-0 group-hover:opacity-100 {node.docContent
+            ? 'opacity-100 text-blue-500'
+            : 'text-gray-400'}"
+          title="Document"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
-          />
-        </svg>
-
-        {#if commentCount > 0}
-          <div
-            class="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] text-white font-bold"
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="w-3 h-3"
           >
-            {commentCount > 9 ? "9+" : commentCount}
-          </div>
-        {/if}
-      </button>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+            />
+          </svg>
+        </button>
+
+        <!-- Comment Button -->
+        <button
+          on:click|stopPropagation={toggleCommentBox}
+          class="p-1 rounded-full transition-colors group/comment relative {commentCount >
+          0
+            ? 'opacity-100'
+            : 'opacity-0 group-hover:opacity-100'}"
+          title="Comments"
+        >
+          {#if commentCount > 0}
+            <div
+              class="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] text-white font-bold shadow-sm"
+            >
+              {commentCount > 9 ? "9+" : commentCount}
+            </div>
+          {:else}
+            <!-- New 'C' Icon with Contrast -->
+            <div
+              class="w-5 h-5 rounded-full bg-indigo-600 border border-indigo-700 text-white flex items-center justify-center text-[10px] font-bold shadow-sm"
+            >
+              C
+            </div>
+          {/if}
+        </button>
+      </div>
     {/if}
 
     <!-- Comment Box (Floating) -->

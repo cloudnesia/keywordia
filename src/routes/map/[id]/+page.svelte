@@ -11,13 +11,16 @@
         isPresentationMode,
         comments,
         activeCommentNodeId,
+        activeDocNodeId,
     } from "$lib/store";
     import { page } from "$app/stores";
     import { onMount, onDestroy } from "svelte";
+    import { spring } from "svelte/motion";
     import { io } from "socket.io-client";
 
     import ContributorList from "$lib/ContributorList.svelte";
     import LoadingModal from "$lib/components/LoadingModal.svelte";
+    import DocEditor from "$lib/components/DocEditor.svelte";
 
     export let data;
 
@@ -133,6 +136,12 @@
             focusedNodeId.set("root");
         }
 
+        // Center the map initially
+        const initialX = window.innerWidth / 2;
+        const initialY = window.innerHeight / 2;
+        targetPan = { x: initialX, y: initialY };
+        transform.set({ x: initialX, y: initialY, scale: 1 }, { hard: true });
+
         fetchComments();
 
         // Simulate loading briefly or wait for data?
@@ -193,8 +202,16 @@
         unsubscribe();
     });
 
-    let pan = { x: 0, y: 0 };
-    let scale = 1;
+    let targetPan = { x: 0, y: 0 };
+    let targetScale = 1;
+    let transform = spring(
+        { x: 0, y: 0, scale: 1 },
+        {
+            stiffness: 0.15,
+            damping: 0.8,
+        },
+    );
+
     let isPanning = false;
     let isPinching = false;
     let lastMousePos = { x: 0, y: 0 };
@@ -208,6 +225,7 @@
     activeCommentNodeId.subscribe((val) => (activeCommentId = val));
 
     function handleMouseDown(e) {
+        if ($activeDocNodeId) return; // Disable pan when doc editor is open
         if (e.button !== 0) return; // Only left click
         isPanning = true;
         lastMousePos = { x: e.clientX, y: e.clientY };
@@ -218,7 +236,11 @@
         const dx = e.clientX - lastMousePos.x;
         const dy = e.clientY - lastMousePos.y;
         lastMousePos = { x: e.clientX, y: e.clientY };
-        pan = { x: pan.x + dx, y: pan.y + dy };
+        targetPan = { x: targetPan.x + dx, y: targetPan.y + dy };
+        transform.set(
+            { x: targetPan.x, y: targetPan.y, scale: targetScale },
+            { hard: true },
+        );
     }
 
     function handleMouseUp() {
@@ -226,14 +248,13 @@
     }
 
     function handleWheel(e) {
-        // e.preventDefault() is handled by Svelte modifier
-        const zoomIntensity = 0.1;
-        const direction = e.deltaY < 0 ? 1 : -1;
-        const factor = 1 + zoomIntensity * direction;
+        if ($activeDocNodeId) return; // Allow default scrolling in editor
+        e.preventDefault(); // Prevent default only if we are zooming map
 
-        const rect = e.currentTarget.getBoundingClientRect();
-        // Mouse relative to container (viewport) is just clientX/Y because container covers screen
-        // But let's be safe if container has offset (it shouldn't in this layout)
+        // e.preventDefault() is handled by Svelte modifier
+        const zoomIntensity = 0.002; // Reduced for exponential factor
+        const factor = Math.exp(-e.deltaY * zoomIntensity);
+
         const mouseX = e.clientX;
         const mouseY = e.clientY;
 
@@ -243,25 +264,32 @@
     function zoom(factor, center) {
         const minScale = 0.1;
         const maxScale = 5;
-        let newScale = scale * factor;
+        let newScale = targetScale * factor;
 
         // Clamp scale
         if (newScale < minScale) newScale = minScale;
         if (newScale > maxScale) newScale = maxScale;
 
         // Recalculate factor in case it was clamped
-        const actualFactor = newScale / scale;
+        const actualFactor = newScale / targetScale;
 
         // Adjust pan to zoom towards center
-        pan = {
-            x: center.x - (center.x - pan.x) * actualFactor,
-            y: center.y - (center.y - pan.y) * actualFactor,
+        targetPan = {
+            x: center.x - (center.x - targetPan.x) * actualFactor,
+            y: center.y - (center.y - targetPan.y) * actualFactor,
         };
-        scale = newScale;
+        targetScale = newScale;
+        transform.set({
+            x: targetPan.x,
+            y: targetPan.y,
+            scale: targetScale,
+        });
     }
 
     // Touch Handlers
     function handleTouchStart(e) {
+        if ($activeDocNodeId) return; // Disable touch pan/zoom when doc editor is open
+
         if (e.touches.length === 1) {
             isPanning = true;
             isPinching = false;
@@ -281,7 +309,11 @@
             const dx = e.touches[0].clientX - lastMousePos.x;
             const dy = e.touches[0].clientY - lastMousePos.y;
             lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            pan = { x: pan.x + dx, y: pan.y + dy };
+            targetPan = { x: targetPan.x + dx, y: targetPan.y + dy };
+            transform.set(
+                { x: targetPan.x, y: targetPan.y, scale: targetScale },
+                { hard: true },
+            );
         } else if (isPinching && e.touches.length === 2) {
             const currentDistance = getDistance(e.touches);
             const currentCenter = getCenter(e.touches);
@@ -289,7 +321,7 @@
             // 1. Pan by center movement
             const dx = currentCenter.x - lastTouchCenter.x;
             const dy = currentCenter.y - lastTouchCenter.y;
-            pan = { x: pan.x + dx, y: pan.y + dy };
+            targetPan = { x: targetPan.x + dx, y: targetPan.y + dy };
 
             // 2. Zoom
             if (lastTouchDistance > 0) {
@@ -341,7 +373,7 @@
     on:mousemove={handleMouseMove}
     on:mouseup={handleMouseUp}
     on:mouseleave={handleMouseUp}
-    on:wheel|preventDefault={handleWheel}
+    on:wheel={handleWheel}
     on:touchstart={handleTouchStart}
     on:touchmove|nonpassive={handleTouchMove}
     on:touchend={handleTouchEnd}
@@ -371,9 +403,12 @@
         isOwner={data.isOwner}
     />
 
-    <div
-        class="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none"
-    >
+    <!-- Document Editor Modal -->
+    {#if $activeDocNodeId}
+        <DocEditor nodeId={$activeDocNodeId} />
+    {/if}
+
+    <div class="absolute top-0 left-0 w-full h-full pointer-events-none">
         <!-- Map Container: movable -->
         <!-- Pointer events auto on children, none on wrapper to let clicks pass to background? 
              Wait, we want clicks on background to pan. 
@@ -383,7 +418,7 @@
         <div
             id="map-container"
             class="p-8 transition-transform duration-0 pointer-events-auto origin-top-left"
-            style="transform: translate({pan.x}px, {pan.y}px) scale({scale});"
+            style="transform: translate({$transform.x}px, {$transform.y}px) scale({$transform.scale});"
         >
             <MindMapNode
                 node={$mindMap}
